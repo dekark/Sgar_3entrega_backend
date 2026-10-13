@@ -83,6 +83,22 @@ export const Roles = pgTable(
   (table) => [unique('roles_nombre_unique').on(table.nombre)],
 );
 
+export const tipoPermisoEnum = pgEnum('tipo_permiso_enum', [
+  'usuarios',
+  'roles',
+  'permisos',
+  'sucursales',
+  'areas',
+  'inventarios',
+  'productos',
+  'categorias',
+  'reportes',
+  'envios',
+  'solicitudes',
+  'tiendas',
+  'auditorias',
+]);
+
 export const Permisos = pgTable(
   'permisos',
   {
@@ -96,6 +112,7 @@ export const Permisos = pgTable(
       length: 100,
     }).notNull(),
     descripcion: text('descripcion').notNull(),
+    tipo: tipoPermisoEnum('tipo'),
   },
   (table) => [unique('permisos_codigo_unique').on(table.codigo)],
 );
@@ -840,7 +857,7 @@ export const SolicitudesProductos = pgTable(
   ],
 );
 
-// Cada asignación vincula un usuario, un rol y un permiso concretos.
+// Cada asignación vincula un permiso concreto con una sola entidad autorizada.
 export const UsuariosRolesPermisos = pgTable(
   'usuarios_roles_permisos',
   {
@@ -865,6 +882,123 @@ export const UsuariosRolesPermisos = pgTable(
     index('usuarios_roles_permisos_usuario_id_idx').on(table.usuarioId),
     index('usuarios_roles_permisos_rol_id_idx').on(table.rolId),
     index('usuarios_roles_permisos_permiso_id_idx').on(table.permisoId),
+  ],
+);
+
+const entidadPermisoRelacionados = [
+  'usuarios',
+  'roles',
+  'sucursales',
+  'areas',
+  'inventarios',
+  'productos',
+  'categorias',
+  'reportes',
+  'envios',
+  'solicitudes',
+  'tiendas',
+  'auditorias',
+] as const;
+
+export const tipoEntidadPermisoEnum = pgEnum(
+  'tipo_entidad_permiso_enum',
+  entidadPermisoRelacionados,
+);
+
+export const PermisosAsignaciones = pgTable(
+  'permisos_asignaciones',
+  {
+    ...fechasRegistro(),
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    permisoId: integer('permiso_id')
+      .notNull()
+      .references(() => Permisos.id, { onDelete: 'cascade' }),
+    tipoEntidad: tipoEntidadPermisoEnum('tipo_entidad').notNull(),
+    usuarioId: integer('usuario_id').references(() => Usuarios.id, {
+      onDelete: 'cascade',
+    }),
+    rolId: integer('rol_id').references(() => Roles.id, {
+      onDelete: 'cascade',
+    }),
+    sucursalId: integer('sucursal_id').references(() => Sucursales.id, {
+      onDelete: 'cascade',
+    }),
+    areaId: integer('area_id').references(() => Areas.id, {
+      onDelete: 'cascade',
+    }),
+    inventarioId: integer('inventario_id').references(() => Inventarios.id, {
+      onDelete: 'cascade',
+    }),
+    productoId: integer('producto_id').references(() => Productos.id, {
+      onDelete: 'cascade',
+    }),
+    categoriaId: integer('categoria_id').references(() => Categorias.id, {
+      onDelete: 'cascade',
+    }),
+    reporteId: integer('reporte_id').references(() => Reportes.id, {
+      onDelete: 'cascade',
+    }),
+    envioId: integer('envio_id').references(() => Envios.id, {
+      onDelete: 'cascade',
+    }),
+    solicitudId: integer('solicitud_id').references(() => Solicitudes.id, {
+      onDelete: 'cascade',
+    }),
+    tiendaId: integer('tienda_id').references(() => Tiendas.id, {
+      onDelete: 'cascade',
+    }),
+    auditoriaId: integer('auditoria_id').references(() => Auditorias.id, {
+      onDelete: 'cascade',
+    }),
+  },
+  (table) => [
+    unique('permisos_asignaciones_unica').on(
+      table.permisoId,
+      table.tipoEntidad,
+      table.usuarioId,
+      table.rolId,
+      table.sucursalId,
+      table.areaId,
+      table.inventarioId,
+      table.productoId,
+      table.categoriaId,
+      table.reporteId,
+      table.envioId,
+      table.solicitudId,
+      table.tiendaId,
+      table.auditoriaId,
+    ),
+    check(
+      'permisos_asignaciones_entidad_unica',
+      sql`(
+        (CASE WHEN ${table.usuarioId} IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN ${table.rolId} IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN ${table.sucursalId} IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN ${table.areaId} IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN ${table.inventarioId} IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN ${table.productoId} IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN ${table.categoriaId} IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN ${table.reporteId} IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN ${table.envioId} IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN ${table.solicitudId} IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN ${table.tiendaId} IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN ${table.auditoriaId} IS NOT NULL THEN 1 ELSE 0 END)
+      ) = 1`,
+    ),
+    index('permisos_asignaciones_permiso_id_idx').on(table.permisoId),
+    index('permisos_asignaciones_tipo_entidad_idx').on(table.tipoEntidad),
+    index('permisos_asignaciones_usuario_id_idx').on(table.usuarioId),
+    index('permisos_asignaciones_rol_id_idx').on(table.rolId),
+    index('permisos_asignaciones_sucursal_id_idx').on(table.sucursalId),
+    index('permisos_asignaciones_area_id_idx').on(table.areaId),
+    index('permisos_asignaciones_inventario_id_idx').on(table.inventarioId),
+    index('permisos_asignaciones_producto_id_idx').on(table.productoId),
+    index('permisos_asignaciones_categoria_id_idx').on(table.categoriaId),
+    index('permisos_asignaciones_reporte_id_idx').on(table.reporteId),
+    index('permisos_asignaciones_envio_id_idx').on(table.envioId),
+    index('permisos_asignaciones_solicitud_id_idx').on(table.solicitudId),
+    index('permisos_asignaciones_tienda_id_idx').on(table.tiendaId),
+    index('permisos_asignaciones_auditoria_id_idx').on(table.auditoriaId),
   ],
 );
 
@@ -1002,6 +1136,9 @@ export const RolesRelations = relations(Roles, ({ many }) => ({
 export const PermisosRelations = relations(Permisos, ({ many }) => ({
   asignaciones: many(UsuariosRolesPermisos, {
     relationName: 'UsuariosRolesPermisos_permisoId',
+  }),
+  entidades: many(PermisosAsignaciones, {
+    relationName: 'PermisosAsignaciones_permisoId',
   }),
 }));
 
@@ -1480,6 +1617,77 @@ export const EnviosProductosRelations = relations(
       fields: [EnviosProductos.productoId],
       references: [Productos.id],
       relationName: 'EnviosProductos_productoId',
+    }),
+  }),
+);
+
+export const PermisosAsignacionesRelations = relations(
+  PermisosAsignaciones,
+  ({ one }) => ({
+    permiso: one(Permisos, {
+      fields: [PermisosAsignaciones.permisoId],
+      references: [Permisos.id],
+      relationName: 'PermisosAsignaciones_permisoId',
+    }),
+    usuario: one(Usuarios, {
+      fields: [PermisosAsignaciones.usuarioId],
+      references: [Usuarios.id],
+      relationName: 'PermisosAsignaciones_usuarioId',
+    }),
+    rol: one(Roles, {
+      fields: [PermisosAsignaciones.rolId],
+      references: [Roles.id],
+      relationName: 'PermisosAsignaciones_rolId',
+    }),
+    sucursal: one(Sucursales, {
+      fields: [PermisosAsignaciones.sucursalId],
+      references: [Sucursales.id],
+      relationName: 'PermisosAsignaciones_sucursalId',
+    }),
+    area: one(Areas, {
+      fields: [PermisosAsignaciones.areaId],
+      references: [Areas.id],
+      relationName: 'PermisosAsignaciones_areaId',
+    }),
+    inventario: one(Inventarios, {
+      fields: [PermisosAsignaciones.inventarioId],
+      references: [Inventarios.id],
+      relationName: 'PermisosAsignaciones_inventarioId',
+    }),
+    producto: one(Productos, {
+      fields: [PermisosAsignaciones.productoId],
+      references: [Productos.id],
+      relationName: 'PermisosAsignaciones_productoId',
+    }),
+    categoria: one(Categorias, {
+      fields: [PermisosAsignaciones.categoriaId],
+      references: [Categorias.id],
+      relationName: 'PermisosAsignaciones_categoriaId',
+    }),
+    reporte: one(Reportes, {
+      fields: [PermisosAsignaciones.reporteId],
+      references: [Reportes.id],
+      relationName: 'PermisosAsignaciones_reporteId',
+    }),
+    envio: one(Envios, {
+      fields: [PermisosAsignaciones.envioId],
+      references: [Envios.id],
+      relationName: 'PermisosAsignaciones_envioId',
+    }),
+    solicitud: one(Solicitudes, {
+      fields: [PermisosAsignaciones.solicitudId],
+      references: [Solicitudes.id],
+      relationName: 'PermisosAsignaciones_solicitudId',
+    }),
+    tienda: one(Tiendas, {
+      fields: [PermisosAsignaciones.tiendaId],
+      references: [Tiendas.id],
+      relationName: 'PermisosAsignaciones_tiendaId',
+    }),
+    auditoria: one(Auditorias, {
+      fields: [PermisosAsignaciones.auditoriaId],
+      references: [Auditorias.id],
+      relationName: 'PermisosAsignaciones_auditoriaId',
     }),
   }),
 );
